@@ -569,6 +569,7 @@ def fanAuto() {
 def configure() {
 	log.debug "binding to Thermostat cluster"
 	delayBetween([
+	sendEvent("name":"thermostatMode", "value":"heat"),
         "zdo bind 0x${device.deviceNetworkId} 1 0x19 0x201 {${device.zigbeeId}} {}",
         //Cluster ID (0x0201 = Thermostat Cluster), Attribute ID, Data Type, Payload (Min report, Max report, On change trigger)
         zigbee.configureReporting(0x0201, 0x0000, 0x29, 10, 60, 50), 	//Attribute ID 0x0000 = local temperature, Data Type: S16BIT
