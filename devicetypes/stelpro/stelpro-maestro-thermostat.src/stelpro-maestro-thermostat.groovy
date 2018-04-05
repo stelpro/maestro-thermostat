@@ -42,6 +42,7 @@ metadata {
         
         attribute "outsideTemp", "number"
         attribute "humidity", "number"
+        //attribute "setpoint", "number"
         
 		command "switchMode"
         command "quickSetHeat"
@@ -50,7 +51,6 @@ metadata {
         command "decreaseHeatSetpoint"
         command "parameterSetting"
         command "setCustomThermostatMode"
-        //command "eco"
         command "updateWeather"
 
 	fingerprint profileId: "0104", endpointId: "19", inClusters: " 0000,0003,0201,0204,0405", outClusters: "0402"
@@ -188,7 +188,6 @@ def parseCalled(String description) {
         else if (descMap.cluster == "0201" && descMap.attrId == "0008") {
         	log.debug "HEAT DEMAND"
             map.name = "thermostatOperatingState"
-            //map.value = getModeMap()[descMap.value]
             if (descMap.value < "10") {
             	map.value = "idle"
             }
@@ -252,15 +251,6 @@ def updateWeather() {
     }
 }
 
-def getModeMap() { [
-    "04":"heat"
-]}
-/*
-def getFanModeMap() { [
-	"04":"fanOn",
-	"05":"fanAuto"
-]}*/
-
 def poll() {
     return pollCalled()
 }
@@ -271,8 +261,6 @@ def pollCalled() {
                 zigbee.readAttribute(0x201, 0x0000),	//Read Local Temperature
                 zigbee.readAttribute(0x201, 0x0008),	//Read PI Heating State
     			zigbee.readAttribute(0x201, 0x0012),	//Read Heat Setpoint
-                //zigbee.readAttribute(0x201, 0x001C),	//Read System Mode
-                //my_readAttribute(0x201, 0x401C, ["mfgCode": "0x1185"]),	//Read Manufacturer Specific Setpoint Mode
                 zigbee.readAttribute(0x204, 0x0000),	//Read Temperature Display Mode
                 zigbee.readAttribute(0x204, 0x0001),	//Read Keypad Lockout
                 zigbee.readAttribute(0x405, 0x0000),	//Read Local Humidity
@@ -399,95 +387,45 @@ def decreaseHeatSetpoint() {
         quickSetHeat(currentSetpoint)
     }
 }
-
+/*
 def modes() {
 	["home", "away", "vacation", "standby"]
-}
+}*/
 
-/*def switchMode() {
-    def currentMode = device.currentState("thermostatMode")?.value
-    def lastTriedMode = state.lastTriedMode ?: currentMode ?: "heat"
-    def modeOrder = modes()
-    def next = { modeOrder[modeOrder.indexOf(it) + 1] ?: modeOrder[0] }
-	def nextMode = next(currentMode)
-    def modeNumber;
-    Integer setpointModeNumber;
-    def modeToSendInString;
 
-    if (nextMode == "home") {
-    	modeNumber = 04
-        setpointModeNumber = 04
-    }
-    else if (nextMode == "eco") {
-    	modeNumber = 04
-        setpointModeNumber = 05
-    }
-    else {
-    	modeNumber = 00
-        setpointModeNumber = 00
-    }
-    if (supportedModes?.contains(currentMode)) {
-        while (!supportedModes.contains(nextMode) && nextMode != "heat") {
-            nextMode = next(nextMode)
-        }
-    }
-    state.lastTriedMode = nextMode
-	modeToSendInString = zigbee.convertToHexString(setpointModeNumber, 2)
-    delayBetween([
-    		"st wattr 0x${device.deviceNetworkId} 0x19 0x201 0x001C 0x30 {$modeNumber}",
-            my_writeAttribute(0x201, 0x401C, 0x30, modeToSendInString, ["mfgCode": "0x1185"]),
-            poll()
-    ], 1000)
-}
-*//*
 def setThermostatMode() {
-	log.debug "switching thermostatMode"
+    /*log.debug "switching thermostatMode"
 	def currentMode = device.currentState("thermostatMode")?.value
 	def modeOrder = modes()
 	def index = modeOrder.indexOf(currentMode)
 	def next = index >= 0 && index < modeOrder.size() - 1 ? modeOrder[index + 1] : modeOrder[0]
 	log.debug "switching mode from $currentMode to $next"
-	"$next"()
+	"$next"()*/
 }
 
-def setThermostatFanMode() {
-	log.debug "Switching fan mode"
-	def currentFanMode = device.currentState("thermostatFanMode")?.value
-	log.debug "switching fan from current mode: $currentFanMode"
-	def returnCommand
-
-	switch (currentFanMode) {
-		case "fanAuto":
-			returnCommand = fanOn()
-			break
-		case "fanOn":
-			returnCommand = fanAuto()
-			break
-	}
-	if(!currentFanMode) { returnCommand = fanAuto() }
-	returnCommand
-}*/
-/*
-def setThermostatMode(String value) {
-	log.debug "setThermostatMode({$value})"
-	def currentMode = device.currentState("thermostatMode")?.value
+def setThermostatMode(def value) {
+	log.debug "setThermostatMode($value)"
+	/*def currentMode = device.currentState("thermostatMode")?.value
 	def lastTriedMode = state.lastTriedMode ?: currentMode ?: "heat"
 	def modeNumber;
 	Integer setpointModeNumber;
-	def modeToSendInString;
+	def modeToSendInString;*/
 	if (value == "heat") {
-    	modeNumber = 04
-        setpointModeNumber = 04
+    	on()
     }
-    else if (value == "eco") {
-    	modeNumber = 04
-        setpointModeNumber = 05
+    else if (value == "cool") {
+    	off()
+    }
+    else if (value == "on") {
+    	on()
+    }
+    else if (value == "off") {
+    	off()
     }
     else {
-    	modeNumber = 00
-        setpointModeNumber = 00
+    	log.debug "MODE NOT SUPPORTED"
     }
-    if (supportedModes?.contains(currentMode)) {
+    /*if (supportedModes?.contains(currentMode)) {
         while (!supportedModes.contains(value) && value != "heat") {
             value = next(value)
         }
@@ -496,58 +434,44 @@ def setThermostatMode(String value) {
 	modeToSendInString = zigbee.convertToHexString(setpointModeNumber, 2)
     delayBetween([
     		"st wattr 0x${device.deviceNetworkId} 0x19 0x201 0x001C 0x30 {$modeNumber}",
-            my_writeAttribute(0x201, 0x401C, 0x30, modeToSendInString, ["mfgCode": "0x1185"]),
+            //my_writeAttribute(0x201, 0x401C, 0x30, modeToSendInString, ["mfgCode": "0x1185"]),
             poll()
-    ], 1000)
+    ], 1000)*/
 }
 
-def setThermostatFanMode(String value) {
-	log.debug "setThermostatFanMode({$value})"
-	"$value"()
+def on() {
+	log.debug "on"
+	sendEvent("name":"thermostatMode", "value":"heat")
 }
-*/
+
 def off() {
 	log.debug "off"
 	sendEvent("name":"thermostatMode", "value":"off")
-	"st wattr 0x${device.deviceNetworkId} 0x19 0x201 0x1C 0x30 {00}"
+    //quickSetHeat(5)
 }
 
 def cool() {
 	log.debug "cool"
-	sendEvent("name":"thermostatMode", "value":"cool")
-	"st wattr 0x${device.deviceNetworkId} 0x19 0x201 0x1C 0x30 {03}"
+	sendEvent("name":"thermostatMode", "value":"off")
 }
 
 def heat() {
 	log.debug "heat"
 	sendEvent("name":"thermostatMode", "value":"heat")
-	"st wattr 0x${device.deviceNetworkId} 0x19 0x201 0x1C 0x30 {04}"
 }
-/*
-def eco() {
-	Integer setpointModeNumber;
-    def modeToSendInString;
-	
-	log.debug "eco"
-	setpointModeNumber = 05
-	modeToSendInString = zigbee.convertToHexString(setpointModeNumber, 2)
-	sendEvent("name":"thermostatMode", "value":"eco")
-	"st wattr 0x${device.deviceNetworkId} 0x19 0x201 0x1C 0x30 {04}"
-    my_writeAttribute(0x201, 0x401C, 0x30, modeToSendInString, ["mfgCode": "0x1185"])
-}
-*/
+
 def emergencyHeat() {
 	log.debug "emergencyHeat"
 	sendEvent("name":"thermostatMode", "value":"emergency heat")
-	"st wattr 0x${device.deviceNetworkId} 0x19 0x201 0x1C 0x30 {05}"
+	//"st wattr 0x${device.deviceNetworkId} 0x19 0x201 0x1C 0x30 {05}"
 }
 
 def setCustomThermostatMode(mode) {
    setThermostatMode(mode)
 }
-
+/*
 def on() {
-	fanOn()
+	//fanOn()
 }
 
 def fanOn() {
@@ -563,19 +487,17 @@ def auto() {
 def fanAuto() {
 	log.debug "fanAuto"
 	sendEvent("name":"thermostatFanMode", "value":"fanAuto")
-	"st wattr 0x${device.deviceNetworkId} 1 0x202 0 0x30 {05}"
+	//"st wattr 0x${device.deviceNetworkId} 1 0x202 0 0x30 {05}"
 }
-
+*/
 def configure() {
 	log.debug "binding to Thermostat cluster"
 	delayBetween([
-	sendEvent("name":"thermostatMode", "value":"heat"),
+    	sendEvent("name":"thermostatMode", "value":"heat"),
         "zdo bind 0x${device.deviceNetworkId} 1 0x19 0x201 {${device.zigbeeId}} {}",
         //Cluster ID (0x0201 = Thermostat Cluster), Attribute ID, Data Type, Payload (Min report, Max report, On change trigger)
         zigbee.configureReporting(0x0201, 0x0000, 0x29, 10, 60, 50), 	//Attribute ID 0x0000 = local temperature, Data Type: S16BIT
     	zigbee.configureReporting(0x0201, 0x0012, 0x29, 1, 0, 50),  	//Attribute ID 0x0012 = occupied heat setpoint, Data Type: S16BIT
-        //zigbee.configureReporting(0x0201, 0x001C, 0x30, 1, 0, 1),   	//Attribute ID 0x001C = system mode, Data Type: 8 bits enum
-        //zigbee.configureReporting(0x0201, 0x401C, 0x30, 1, 0, 1),   	//Attribute ID 0x401C = manufacturer specific setpoint mode, Data Type: 8 bits enum
         zigbee.configureReporting(0x0201, 0x0008, 0x20, 300, 900, 5),   //Attribute ID 0x0008 = pi heating demand, Data Type: U8BIT
         
         //Cluster ID (0x0204 = Thermostat Ui Conf Cluster), Attribute ID, Data Type, Payload (Min report, Max report, On change trigger)
@@ -587,8 +509,6 @@ def configure() {
         //Read the configured variables
         zigbee.readAttribute(0x201, 0x0000),	//Read Local Temperature
     	zigbee.readAttribute(0x201, 0x0012),	//Read Heat Setpoint
-        //zigbee.readAttribute(0x201, 0x001C),	//Read System Mode
-        //my_readAttribute(0x201, 0x401C, ["mfgCode": "0x1185"]),	//Read Manufacturer Specific Setpoint Mode
         zigbee.readAttribute(0x201, 0x0008),	//Read PI Heating State
         zigbee.readAttribute(0x204, 0x0000),	//Read Temperature Display Mode
     	zigbee.readAttribute(0x204, 0x0001),	//Read Keypad Lockout
